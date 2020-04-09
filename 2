@@ -1,0 +1,141 @@
+/*
+	Лабараторная работа #1, вариант 5
+	winexec
+	CreateProcess
+	OpenProcess
+	CloseHandle
+	Getexitcodeprocess
+	terminateprocess
+	getpriorityclass
+	_beginthreadex
+	_endthreadex
+	suspendthread
+	resumethread
+*/
+#include <iostream>
+#include <string>
+#include <windows.h>
+#include <process.h>
+
+using namespace std;
+
+#if _DEBUG
+#define DEBUG_ERROR(err_msg) cout << err_msg << endl;
+#else
+#define DEBUG_ERROR(err_msg) cout << err_msg << endl; system("pause"); exit(0);
+#endif
+
+unsigned long object;
+uintptr_t threadHandle;
+bool threadStop;
+unsigned __stdcall thread(void*arg);
+
+int main() {
+	// init
+	char ans=0;
+	object = 0;
+	threadStop = false;
+	threadHandle = NULL;
+	string inputCmd;
+
+	//winexec
+	cout << "WinExec (y or n)" << endl;
+	cin >> ans;
+	if (ans == 'y') {
+		cout << "Enter path to exe-file" << endl;
+		cin >> inputCmd;
+		WinExec(inputCmd.c_str(), SW_SHOW);
+	}
+
+	//CreateProcess
+	STARTUPINFOA cif;
+	PROCESS_INFORMATION pi;
+	ZeroMemory(&cif, sizeof(STARTUPINFO));
+	ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
+	cout << "CreateProcess (y or n)" << endl;
+	cin >> ans;
+	if (ans == 'y') {
+		cout << "Enter path to exe-file" << endl;
+		cin >> inputCmd;
+		
+		cout << "CreateProcess " << inputCmd << endl;
+		if (!CreateProcessA(inputCmd.c_str(), NULL,
+			NULL, NULL, FALSE, NULL, NULL, NULL, &cif, &pi))
+			DEBUG_ERROR("CreateProcess error");
+
+		cout << "Suspende thread? (y or n)" << endl;
+		cin >> ans;
+		if (ans == 'y') {
+			cout << "for how many seconds?" << endl;
+			cin >> inputCmd;
+			SuspendThread(pi.hThread); //SuspendThread
+			Sleep(atoi(inputCmd.c_str())*1000);
+			ResumeThread(pi.hThread); //ResumeThread
+		}
+		cout << "Get priority class (y or n)" << endl;
+		cin >> ans;
+		if (ans == 'y') {
+			//GetPriorityClass
+			DWORD priorityProc = GetPriorityClass(pi.hProcess);
+			cout << "Priority class: " << priorityProc << endl;
+		}
+	}
+
+	//OpenProcess
+	cout << "OpenProcess and TerminateProcess (y or n)" << endl;
+	cin >> ans;
+	if (ans == 'y') {
+		HANDLE openProc = OpenProcess(PROCESS_TERMINATE, FALSE, pi.dwProcessId);
+		if (openProc != nullptr) {
+			/*terminate process*/
+			if (!TerminateProcess(openProc, 0))
+				DEBUG_ERROR("TerminateProcess error");
+		}
+		else
+			DEBUG_ERROR("OpenProcess error");
+		CloseHandle(openProc);
+	}
+
+	//CloseHandle
+	CloseHandle(pi.hThread);
+	CloseHandle(pi.hProcess);
+
+	//GetExitCodeProcess
+	cout << "GetExitProcessCode (y or n)" << endl;
+	cin >> ans;
+	if (ans == 'y') {
+		DWORD out = 0;
+		if (GetExitCodeProcess(GetCurrentProcess(), &out)) {
+			if (out == STILL_ACTIVE)
+				cout << "Exit code: STILL_ACTIVE" << endl;
+		}
+		else
+			DEBUG_ERROR("GetExitCodeProcess error");
+	}
+
+	cout << "_beginthreadex and _endthreadex (y or n)" << endl;
+	cin >> ans;
+	if (ans == 'y') {
+			unsigned thID=0;
+			threadHandle = _beginthreadex(NULL, NULL, &thread, NULL,0, &thID);
+			if (threadHandle) {
+				MessageBoxA(NULL, "New thread is run! Click to ok for end thread!", "run", MB_OK);
+				threadStop = true;
+			}
+			else
+				DEBUG_ERROR("_beginthreadex error");
+
+			
+	}
+	system("pause");
+}
+
+unsigned __stdcall thread(void*arg) {
+	while (true) {
+		if (threadStop)
+			_endthreadex(NULL);
+		printf("%d\n", ++object);
+		Sleep(300);
+	}
+	return 0;
+}
